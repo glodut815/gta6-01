@@ -67,7 +67,9 @@ var SB = window.SB || (window.SB = {});
     G.view.w = canvas.width;
     G.view.h = canvas.height;
     SB.render(G, G.view);
-    SB.Input.endFrame();
+    // NOTE: no endFrame() here on purpose. Edge input is cleared after each
+    // simulation step above; clearing it after rendering too would drop a
+    // click or key press that lands in a frame which ran no step.
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

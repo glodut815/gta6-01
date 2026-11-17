@@ -121,14 +121,14 @@ SB.completeMission = function (G) {
   G.missionIndex += 1;
   G.missionStep = 0;
   G.missionStarted = false; // the next mission's intro starts after this outro
+  if (G.missionIndex >= SB.MISSIONS.length) {
+    G.storyComplete = true;
+  }
   SB.Audio.missionDone();
   SB.showDialogue(G, m.outro.concat([
     { who: 'Sunspire Bay', text: 'Mission complete — $' + m.reward + ' earned.' },
   ]));
   SB.saveGame(G);
-  if (G.missionIndex >= SB.MISSIONS.length) {
-    G.storyComplete = true;
-  }
 };
 
 SB.advanceStep = function (G) {

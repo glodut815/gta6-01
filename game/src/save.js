@@ -54,7 +54,7 @@ SB.applySave = function (G, data) {
   G.missionIndex = typeof data.missionIndex === 'number' ? data.missionIndex : 0;
   G.missionStep = data.missionStep || 0;
   G.missionsDone = data.missionsDone || 0;
-  G.storyComplete = !!data.storyComplete;
+  G.storyComplete = !!data.storyComplete || G.missionIndex >= SB.MISSIONS.length;
   G.player.x = data.x || SB.PLACES.plaza.x;
   G.player.y = data.y || SB.PLACES.plaza.y;
   G.wanted = 0; // a fresh session starts clean; the heat does not follow you home
