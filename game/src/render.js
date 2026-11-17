@@ -237,12 +237,17 @@ function drawWorld(ctx, G, view) {
   var target = SB.missionTarget(G);
   if (target && (G.state === 'play' || G.state === 'dialogue')) {
     var pulse = 1 + Math.sin(G.time * 4) * 0.15;
-    ctx.fillStyle = 'rgba(242,201,76,0.18)';
-    ctx.fillRect(target.x - 26, target.y - 260, 52, 260);
+    ctx.fillStyle = 'rgba(242,201,76,0.30)';
+    ctx.fillRect(target.x - 30, target.y - 260, 60, 260);
     ctx.strokeStyle = SB.PALETTE.gold;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(target.x, target.y, 34 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(242,201,76,0.45)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 52 * pulse, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = SB.PALETTE.gold;
     ctx.beginPath();

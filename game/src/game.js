@@ -266,11 +266,14 @@ function updatePlayerInCar(G, dt, input) {
   }
   if (input.handbrake) {
     car.speed -= car.speed * 3.2 * dt;
-    car.angle += ((input.left ? 1 : 0) - (input.right ? 1 : 0)) * SB.CAR.steerRate * 1.6 * dt * Math.sign(car.speed || 1);
+    car.angle += ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * SB.CAR.steerRate * 1.6 * dt * Math.sign(car.speed || 1);
   }
   car.speed = Math.max(-SB.CAR.reverseMax, Math.min(SB.CAR.maxSpeed, car.speed));
-  var steer = ((input.left ? 1 : 0) - (input.right ? 1 : 0));
-  var grip = Math.min(1, Math.abs(car.speed) / 160);
+  var steer = ((input.right ? 1 : 0) - (input.left ? 1 : 0));
+  // Steering stays alive at low speed (a floor on the grip): a car creeping
+  // through a three-point turn can still swing its nose around, so a
+  // U-turn fits on a city street instead of needing a whole block.
+  var grip = Math.max(0.45, Math.min(1, Math.abs(car.speed) / 160));
   car.angle += steer * SB.CAR.steerRate * grip * dt * Math.sign(car.speed || 1);
   var nx = car.x + Math.cos(car.angle) * car.speed * dt;
   var ny = car.y + Math.sin(car.angle) * car.speed * dt;

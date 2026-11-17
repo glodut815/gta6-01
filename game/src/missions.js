@@ -84,11 +84,17 @@ SB.currentStep = function (G) {
   return m.steps[G.missionStep] || null;
 };
 
-// Where the player should go right now: the current step's place, or null.
+// Where the player should go right now: the current step's place — or, when
+// the current step has no place of its own (stealing a car), the next step's,
+// so the marker always points at the job ahead.
 SB.missionTarget = function (G) {
   var step = SB.currentStep(G);
-  if (!step || !step.place) return null;
-  return SB.PLACES[step.place];
+  if (!step) return null;
+  if (step.place) return SB.PLACES[step.place];
+  var m = SB.currentMission(G);
+  var next = m.steps[G.missionStep + 1];
+  if (next && next.place) return SB.PLACES[next.place];
+  return null;
 };
 
 SB.startMission = function (G, index) {
@@ -143,7 +149,12 @@ SB.updateMissions = function (G, dt) {
     return;
   }
   if (step.type === 'clear') {
-    if (G.goons.length === 0 && G.stepGoonsSpawned) {
+    // Done when every goon is down — not when their bodies are cleared away.
+    var anyStanding = false;
+    for (var gi = 0; gi < G.goons.length; gi += 1) {
+      if (G.goons[gi].state !== 'down') { anyStanding = true; break; }
+    }
+    if (G.stepGoonsSpawned && !anyStanding) {
       G.stepGoonsSpawned = false;
       SB.advanceStep(G);
     } else if (!G.stepGoonsSpawned) {

@@ -45,6 +45,10 @@ var SB = window.SB || (window.SB = {});
   }
 
   // Live play: fixed-step simulation, render every animation frame.
+  // Edge-triggered input (a key press, a click) is cleared after EVERY
+  // simulation step, not just every frame: several steps can run in one
+  // frame, and a press must never fire twice — the E that ends a dialogue
+  // must not also steal the car parked next to the player.
   var STEP = SB.CFG.STEP;
   var acc = 0;
   var last = performance.now();
@@ -55,6 +59,7 @@ var SB = window.SB || (window.SB = {});
     var guard = 0;
     while (acc >= STEP && guard < 5) {
       SB.update(G, STEP);
+      SB.Input.endFrame();
       acc -= STEP;
       guard += 1;
     }

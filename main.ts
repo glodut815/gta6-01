@@ -27,7 +27,10 @@ if (existsSync(join(here, 'screenshots'))) {
 // The caps the scorer enforces: keep the entry inside them here so a hand-in
 // that passes this program also passes the gate (at most 4 screenshots, each
 // at most 256 KiB; game/ at most 993 files and 48 MiB in all; no path under
-// game/ over 1000 bytes; the dossier text at most 160 KiB).
+// game/ over 1000 bytes; the dossier text at most 160 KiB). The output
+// directory is created fresh each run; stale files from an older run are
+// never carried over, so two runs of this program write byte-identical
+// output for the same repository.
 writeFileSync(
   join(out, 'dossier.json'),
   buildDossier(out, {
