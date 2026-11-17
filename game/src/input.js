@@ -1,67 +1,57 @@
-// Keyboard and mouse state. The game polls this each frame; menu buttons read
-// the click edge (a press that happened since the last frame) through consumeClick.
-var SB = window.SB || (window.SB = {});
+// Keyboard + mouse state. Tracks held keys, edge-triggered presses and the
+// mouse position in canvas pixels, so gameplay reads one object.
 
-SB.Input = (function () {
-  var keys = {};
-  var mouse = { x: 0, y: 0, down: false, clicked: false, worldX: 0, worldY: 0 };
-  var pressed = {}; // keys pressed since last frame (edge-triggered)
-  var attached = false;
+export class Input {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.keys = new Set();
+    this.pressed = new Set();
+    this.mouse = { x: 640, y: 360, down: false, clicked: false };
+    this.anyKey = false;
 
-  function keyDown(e) {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].indexOf(e.code) !== -1) {
-      e.preventDefault();
-    }
-    if (!keys[e.code]) pressed[e.code] = true;
-    keys[e.code] = true;
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      if (!e.repeat) this.pressed.add(e.code);
+      this.keys.add(e.code);
+      this.anyKey = true;
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => this.keys.clear());
+
+    canvas.addEventListener('mousemove', (e) => {
+      const r = canvas.getBoundingClientRect();
+      this.mouse.x = ((e.clientX - r.left) / r.width) * canvas.width;
+      this.mouse.y = ((e.clientY - r.top) / r.height) * canvas.height;
+    });
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { this.mouse.down = true; this.mouse.clicked = true; }
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 0) this.mouse.down = false;
+    });
   }
-  function keyUp(e) { keys[e.code] = false; }
 
-  return {
-    mouse: mouse,
-    attach: function (canvas) {
-      if (attached) return;
-      attached = true;
-      window.addEventListener('keydown', keyDown);
-      window.addEventListener('keyup', keyUp);
-      window.addEventListener('blur', function () { keys = {}; mouse.down = false; });
-      canvas.addEventListener('mousemove', function (e) {
-        var r = canvas.getBoundingClientRect();
-        mouse.x = e.clientX - r.left;
-        mouse.y = e.clientY - r.top;
-      });
-      canvas.addEventListener('mousedown', function (e) {
-        if (e.button === 0) { mouse.down = true; mouse.clicked = true; }
-      });
-      window.addEventListener('mouseup', function (e) {
-        if (e.button === 0) mouse.down = false;
-      });
-      canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-    },
-    // True while any of the codes is held.
-    held: function (codes) {
-      for (var i = 0; i < codes.length; i += 1) {
-        if (keys[codes[i]]) return true;
-      }
-      return false;
-    },
-    // True only on the frame the key went down.
-    hit: function (codes) {
-      for (var i = 0; i < codes.length; i += 1) {
-        if (pressed[codes[i]]) return true;
-      }
-      return false;
-    },
-    // A mouse click that happened since the last frame; consumes it.
-    consumeClick: function () {
-      var c = mouse.clicked;
-      mouse.clicked = false;
-      return c;
-    },
-    // Called at the end of each frame: clears edge-triggered state.
-    endFrame: function () {
-      pressed = {};
-      mouse.clicked = false;
-    },
-  };
-})();
+  down(code) { return this.keys.has(code); }
+
+  // True only on the frame the key went down.
+  wasPressed(code) { return this.pressed.has(code); }
+
+  // WASD or arrows as a normalised 2D vector.
+  moveVector() {
+    let x = 0, y = 0;
+    if (this.down('KeyA') || this.down('ArrowLeft')) x -= 1;
+    if (this.down('KeyD') || this.down('ArrowRight')) x += 1;
+    if (this.down('KeyW') || this.down('ArrowUp')) y -= 1;
+    if (this.down('KeyS') || this.down('ArrowDown')) y += 1;
+    if (x !== 0 && y !== 0) { x *= Math.SQRT1_2; y *= Math.SQRT1_2; }
+    return { x, y };
+  }
+
+  get running() { return this.down('ShiftLeft') || this.down('ShiftRight'); }
+
+  // Call at the end of each frame so presses do not leak into the next one.
+  endFrame() {
+    this.pressed.clear();
+    this.mouse.clicked = false;
+  }
+}

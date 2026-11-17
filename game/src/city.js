@@ -1,226 +1,219 @@
-// The city of Sunspire Bay: a road grid, districts, buildings, a park, a bay
-// with a beach, and the named places the missions use. Everything is placed
-// from a seed, so the same seed always builds the same city.
-var SB = window.SB || (window.SB = {});
+// Sunspire Bay's map: a seeded grid city with a harbour channel, one bridge,
+// districts, buildings, parks, piers and parked cars — plus the collision and
+// road helpers the player, traffic and police all share.
 
-SB.CITY = {
-  // The bay: water along the south-west edge, with a sand strip above it.
-  BAY: { x: 0, y: 1980, w: 780, h: 720 },
-  BEACH: { x: 0, y: 1900, w: 780, h: 80 },
-  PARK: { x: 1448, y: 1048, w: 304, h: 304 },
-};
+import { ROADS_V, ROADS_H, ROAD_W, WORLD, CHANNEL, BRIDGE, COLORS, PLACES } from './config.js';
+import { makeRng } from './rng.js';
 
-// Named places the story uses. All sit on roads or plazas, never inside a building.
-SB.PLACES = {
-  garage:    { x: 1800, y: 648,  name: "Ray's Garage" },
-  docks:     { x: 420,  y: 1820, name: 'Meridian Docks' },
-  motel:     { x: 3000, y: 1048, name: 'Sunset Motel' },
-  bridge:    { x: 3352, y: 1800, name: 'East Bridge' },
-  warehouse: { x: 2900, y: 2200, name: 'Harbor Warehouse' },
-  safehouse: { x: 1000, y: 648,  name: 'Safehouse' },
-  hospital:  { x: 1400, y: 1752, name: 'Sunspire General' },
-  policeHQ:  { x: 2200, y: 1048, name: 'Police HQ' },
-  plaza:     { x: 1800, y: 1400, name: 'Meridian Plaza' },
-};
+const CAR_COLORS = ['#c0392b', '#2980b9', '#f1c40f', '#ecf0f1', '#2c3e50', '#e67e22', '#8e44ad', '#16a085', '#bdc3c7'];
 
-SB.buildCity = function (seed) {
-  var rng = SB.makeRng(seed);
-  var W = SB.CFG.WORLD_W;
-  var H = SB.CFG.WORLD_H;
-  var city = {
-    seed: seed,
-    buildings: [],
-    trees: [],
-    parkedCars: [],
-    water: [SB.CITY.BAY],
-    parks: [SB.CITY.PARK],
-    beaches: [SB.CITY.BEACH],
-  };
+export function buildCity(seed) {
+  const rng = makeRng(seed);
+  const buildings = [];
+  const parks = [];
+  const trees = [];
+  const parkedCars = [];
 
-  function districtAt(cx, cy) {
-    if (cx < 820 && cy > 1850) return 'marina';
-    if (cx > 2500) return 'industrial';
-    if (cy < 550) return 'oldtown';
-    if (Math.abs(cx - 1800) < 850 && Math.abs(cy - 1350) < 650) return 'downtown';
-    return 'residential';
-  }
-  function nearPlace(x, y, r) {
-    var keys = Object.keys(SB.PLACES);
-    for (var i = 0; i < keys.length; i += 1) {
-      var p = SB.PLACES[keys[i]];
-      if (Math.abs(p.x - x) < r && Math.abs(p.y - y) < r) return true;
-    }
-    return false;
-  }
-  function overlapsWater(x, y, w, h) {
-    return x < SB.CITY.BAY.x + SB.CITY.BAY.w && x + w > SB.CITY.BAY.x &&
-      y < SB.CITY.BAY.y + SB.CITY.BAY.h && y + h > SB.CITY.BAY.y;
-  }
-  function overlapsPark(x, y, w, h) {
-    var p = SB.CITY.PARK;
-    return x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y;
-  }
+  const roadHalf = ROAD_W / 2;
+  const blockXs = [0, ...ROADS_V, WORLD.w];
+  const blockYs = [0, ...ROADS_H, WORLD.h];
 
-  var halfRoad = SB.CFG.ROAD_W / 2;
-  var pad = halfRoad + SB.CFG.SIDEWALK + 10;
-  for (var bx = 0; bx < SB.ROADS_V.length - 1; bx += 1) {
-    for (var by = 0; by < SB.ROADS_H.length - 1; by += 1) {
-      var bx0 = SB.ROADS_V[bx] + pad;
-      var bx1 = SB.ROADS_V[bx + 1] - pad;
-      var by0 = SB.ROADS_H[by] + pad;
-      var by1 = SB.ROADS_H[by + 1] - pad;
-      var cx = (bx0 + bx1) / 2;
-      var cy = (by0 + by1) / 2;
-      var district = districtAt(cx, cy);
-      var block = { x: bx0, y: by0, w: bx1 - bx0, h: by1 - by0 };
-
-      // The park block stays green, with trees instead of buildings.
-      if (overlapsPark(block.x, block.y, block.w, block.h)) {
-        for (var t = 0; t < 26; t += 1) {
-          city.trees.push({
-            x: rng.range(block.x + 16, block.x + block.w - 16),
-            y: rng.range(block.y + 16, block.y + block.h - 16),
-            r: rng.range(9, 15),
-          });
+  // One building block per cell of the street grid.
+  for (let i = 0; i < blockXs.length - 1; i++) {
+    for (let j = 0; j < blockYs.length - 1; j++) {
+      const x0 = blockXs[i] + (i === 0 ? 0 : roadHalf) + 14;
+      const x1 = blockXs[i + 1] - (i + 1 === blockXs.length - 1 ? 0 : roadHalf) - 14;
+      const y0 = blockYs[j] + (j === 0 ? 0 : roadHalf) + 14;
+      const y1 = blockYs[j + 1] - (j + 1 === blockYs.length - 1 ? 0 : roadHalf) - 14;
+      if (x1 - x0 < 90 || y1 - y0 < 90) continue;
+      // The channel eats the blocks it crosses; the bridge block stays open.
+      if (x0 < CHANNEL.x1 && x1 > CHANNEL.x0) continue;
+      // East edge is harbour water.
+      if (x0 > 3480) continue;
+      // The docks stay an open yard: no buildings, so the warehouse fight has
+      // clear firing lanes and the pickup spots are always reachable.
+      if (x0 >= CHANNEL.x1) continue;
+      const roll = rng.next();
+      if (roll < 0.16) {
+        const park = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+        parks.push(park);
+        const n = Math.floor(park.w * park.h / 9000);
+        for (let t = 0; t < n; t++) {
+          trees.push({ x: rng.range(park.x + 16, park.x + park.w - 16), y: rng.range(park.y + 16, park.y + park.h - 16), r: rng.range(9, 15) });
         }
         continue;
       }
-      // Blocks touching the bay become beachfront: no buildings.
-      if (overlapsWater(block.x, block.y, block.w, block.h)) continue;
-      // A few blocks are open parking lots with parked cars to steal.
-      if (rng.chance(0.16)) {
-        var lotCars = rng.int(2, 4);
-        for (var c = 0; c < lotCars; c += 1) {
-          city.parkedCars.push({
-            x: rng.range(block.x + 40, block.x + block.w - 40),
-            y: rng.range(block.y + 40, block.y + block.h - 40),
-            angle: rng.pick([0, Math.PI / 2, Math.PI, -Math.PI / 2]),
-            color: rng.pick(SB.CAR_COLORS),
-          });
-        }
-        continue;
-      }
-
-      var tall = district === 'downtown';
-      var n = tall ? rng.int(2, 4) : rng.int(1, 3);
-      for (var b = 0; b < n; b += 1) {
-        var bw = rng.range(70, Math.min(150, block.w * 0.45));
-        var bh = rng.range(70, Math.min(150, block.h * 0.45));
-        var px = rng.range(block.x, block.x + block.w - bw);
-        var py = rng.range(block.y, block.y + block.h - bh);
-        if (nearPlace(px + bw / 2, py + bh / 2, 170)) continue;
-        var clash = false;
-        for (var k = 0; k < city.buildings.length; k += 1) {
-          var o = city.buildings[k];
-          if (px < o.x + o.w + 14 && px + bw + 14 > o.x && py < o.y + o.h + 14 && py + bh + 14 > o.y) {
-            clash = true; break;
-          }
-        }
-        if (clash) continue;
-        city.buildings.push({
-          x: px, y: py, w: bw, h: bh,
-          height: tall ? rng.int(1, 3) : rng.int(0, 1),
-          color: rng.pick(SB.BUILDING_COLORS),
-          roof: rng.pick(SB.ROOF_COLORS),
-          district: district,
-        });
-      }
-      // Street trees along residential blocks.
-      if (district === 'residential' || district === 'oldtown') {
-        for (var s = 0; s < 3; s += 1) {
-          city.trees.push({
-            x: rng.range(block.x, block.x + block.w),
-            y: rng.range(block.y, block.y + block.h),
-            r: rng.range(8, 12),
-          });
-        }
+      const nB = rng.int(1, 3);
+      for (let b = 0; b < nB; b++) {
+        const bw = rng.range(70, Math.min(190, (x1 - x0) / nB - 20));
+        const bh = rng.range(60, Math.min(170, y1 - y0 - 24));
+        const bx = rng.range(x0 + 8, x1 - bw - 8);
+        const by = rng.range(y0 + 8, y1 - bh - 8);
+        const rect = { x: bx, y: by, w: bw, h: bh, color: rng.pick(COLORS.buildingRoof), roof: rng.pick(['flat', 'peak', 'flat']) };
+        if (buildings.some((o) => rectsOverlap(rect, o, 12))) continue;
+        buildings.push(rect);
       }
     }
   }
 
-  // Collision blockers: buildings and the bay.
-  city.blockers = city.buildings.map(function (b) {
-    return { x: b.x, y: b.y, w: b.w, h: b.h };
+  // Parked cars along road edges, aligned with the street.
+  const spots = [];
+  for (const vx of ROADS_V) {
+    for (const hy of ROADS_H) {
+      if (vx > CHANNEL.x0 && vx < CHANNEL.x1) continue;
+      spots.push({ x: vx + roadHalf - 26, y: hy + 150, angle: Math.PI / 2, along: 'v' });
+      spots.push({ x: vx - roadHalf + 26, y: hy - 150, angle: -Math.PI / 2, along: 'v' });
+    }
+  }
+  for (const hy of ROADS_H) {
+    for (const vx of ROADS_V) {
+      if (hy === 1100) continue;
+      if (vx > CHANNEL.x0) continue;
+      spots.push({ x: vx + 170, y: hy + roadHalf - 26, angle: 0, along: 'h' });
+    }
+  }
+  // Shuffle deterministically, then keep a spread of cars.
+  for (let i = spots.length - 1; i > 0; i--) {
+    const k = Math.floor(rng.next() * (i + 1));
+    [spots[i], spots[k]] = [spots[k], spots[i]];
+  }
+  for (const s of spots.slice(0, 16)) {
+    if (pointInBuilding(buildings, s.x, s.y, 24)) continue;
+    if (pointInWater(s.x, s.y)) continue;
+    parkedCars.push({ x: s.x, y: s.y, angle: s.angle, color: rng.pick(CAR_COLORS), model: rng.pick(['sedan', 'hatch', 'coupe', 'van']) });
+  }
+
+  // Named places and the warehouse fight ground must stay clear of buildings,
+  // or a mission target could be unreachable (or the player spawn inside one).
+  const CLEAR_SPOTS = [
+    PLACES.safehouse, PLACES.garage, PLACES.docksPickup, PLACES.motel,
+    PLACES.bridgeEast, PLACES.warehouse, PLACES.spawn,
+    { x: 3300, y: 1640 }, { x: 3420, y: 1660 }, { x: 3360, y: 1800 },
+    { x: 3280, y: 1760 }, { x: 3440, y: 1780 }, { x: 3420, y: 1760 },
+  ];
+  const clearBuildings = buildings.filter((b) => {
+    for (const c of CLEAR_SPOTS) {
+      const cx = Math.max(b.x, Math.min(c.x, b.x + b.w));
+      const cy = Math.max(b.y, Math.min(c.y, b.y + b.h));
+      if (Math.hypot(c.x - cx, c.y - cy) < 85) return false;
+    }
+    return true;
   });
-  city.blockers.push({ x: SB.CITY.BAY.x, y: SB.CITY.BAY.y, w: SB.CITY.BAY.w, h: SB.CITY.BAY.h });
+  buildings.length = 0;
+  buildings.push(...clearBuildings);
 
-  // Keep the world edges fenced so nothing leaves the map.
-  city.bounds = { x: 40, y: 40, w: W - 80, h: H - 80 };
-  return city;
-};
+  return {
+    buildings, parks, trees, parkedCars,
+    roadsV: ROADS_V, roadsH: ROADS_H, roadW: ROAD_W,
+    channel: CHANNEL, bridge: BRIDGE,
+    piers: [{ x: 3480, y: 380, w: 110, h: 46 }, { x: 3480, y: 1080, w: 110, h: 46 }, { x: 3480, y: 1780, w: 110, h: 46 }],
+  };
+}
 
-// True when a circle at (x, y) with radius r touches a blocker or the bounds.
-SB.hitsBlocker = function (city, x, y, r) {
-  if (x - r < city.bounds.x || x + r > city.bounds.x + city.bounds.w ||
-      y - r < city.bounds.y || y + r > city.bounds.y + city.bounds.h) return true;
-  for (var i = 0; i < city.blockers.length; i += 1) {
-    var b = city.blockers[i];
-    var nx = Math.max(b.x, Math.min(x, b.x + b.w));
-    var ny = Math.max(b.y, Math.min(y, b.y + b.h));
-    var dx = x - nx, dy = y - ny;
-    if (dx * dx + dy * dy < r * r) return true;
+export function rectsOverlap(a, b, pad) {
+  return a.x - pad < b.x + b.w && a.x + a.w + pad > b.x && a.y - pad < b.y + b.h && a.y + a.h + pad > b.y;
+}
+
+export function pointInBuilding(buildings, x, y, r) {
+  for (const b of buildings) {
+    if (x + r > b.x && x - r < b.x + b.w && y + r > b.y && y - r < b.y + b.h) return b;
+  }
+  return null;
+}
+
+export function pointInWater(x, y) {
+  if (x > 3500) return true;
+  if (x > CHANNEL.x0 && x < CHANNEL.x1) {
+    if (y > BRIDGE.y0 && y < BRIDGE.y1) return false;
+    return true;
   }
   return false;
-};
+}
 
-// Push a circle out of blockers and bounds, one axis at a time.
-SB.resolveCircle = function (city, ent, r) {
-  ent.x = Math.max(city.bounds.x + r, Math.min(city.bounds.x + city.bounds.w - r, ent.x));
-  ent.y = Math.max(city.bounds.y + r, Math.min(city.bounds.y + city.bounds.h - r, ent.y));
-  for (var i = 0; i < city.blockers.length; i += 1) {
-    var b = city.blockers[i];
-    var nx = Math.max(b.x, Math.min(ent.x, b.x + b.w));
-    var ny = Math.max(b.y, Math.min(ent.y, b.y + b.h));
-    var dx = ent.x - nx, dy = ent.y - ny;
-    var d2 = dx * dx + dy * dy;
-    if (d2 >= r * r) continue;
-    if (d2 < 0.01) {
-      // Centre inside the box: push out along the smallest overlap.
-      var left = ent.x - b.x, right = b.x + b.w - ent.x;
-      var top = ent.y - b.y, bottom = b.y + b.h - ent.y;
-      var m = Math.min(left, right, top, bottom);
-      if (m === left) ent.x = b.x - r;
-      else if (m === right) ent.x = b.x + b.w + r;
-      else if (m === top) ent.y = b.y - r;
-      else ent.y = b.y + b.h + r;
-      continue;
+// On a road (not on the bridge the channel still counts as road).
+export function isOnRoad(x, y) {
+  const half = ROAD_W / 2;
+  for (const vx of ROADS_V) {
+    if (Math.abs(x - vx) <= half) return true;
+  }
+  for (const hy of ROADS_H) {
+    if (Math.abs(y - hy) <= half && !pointInWater(x, y)) return true;
+    if (Math.abs(y - hy) <= half && y > BRIDGE.y0 && y < BRIDGE.y1) return true;
+  }
+  return false;
+}
+
+// Circle vs buildings + water + world edge. Returns the blocking rect or 'water'.
+export function collideWorld(city, x, y, r) {
+  if (x < r + 4 || y < r + 4 || x > WORLD.w - r - 4 || y > WORLD.h - r - 4) return 'edge';
+  if (pointInWater(x, y)) return 'water';
+  return pointInBuilding(city.buildings, x, y, r);
+}
+
+// Road graph for driving: nodes are intersections, edges run along streets.
+// A horizontal edge crossing the channel exists only on the bridge street.
+export function buildRoadGraph() {
+  const nodes = [];
+  const index = new Map();
+  for (const vx of ROADS_V) {
+    for (const hy of ROADS_H) {
+      const key = vx + ',' + hy;
+      index.set(key, nodes.length);
+      nodes.push({ x: vx, y: hy, key });
     }
-    var d = Math.sqrt(d2);
-    ent.x = nx + (dx / d) * r;
-    ent.y = ny + (dy / d) * r;
   }
-};
+  const edges = Array.from({ length: nodes.length }, () => []);
+  const link = (a, b) => {
+    edges[a].push(b);
+    edges[b].push(a);
+  };
+  for (const vx of ROADS_V) {
+    for (let j = 0; j < ROADS_H.length - 1; j++) {
+      link(index.get(vx + ',' + ROADS_H[j]), index.get(vx + ',' + ROADS_H[j + 1]));
+    }
+  }
+  for (const hy of ROADS_H) {
+    for (let i = 0; i < ROADS_V.length - 1; i++) {
+      const a = ROADS_V[i], b = ROADS_V[i + 1];
+      // Crossing the channel is only possible on the bridge street.
+      if (a < CHANNEL.x0 && b > CHANNEL.x1 && hy !== 1100) continue;
+      link(index.get(a + ',' + hy), index.get(b + ',' + hy));
+    }
+  }
+  return { nodes, edges, index };
+}
 
-// Is the point on a road (within the asphalt)?
-SB.onRoad = function (x, y) {
-  var half = SB.CFG.ROAD_W / 2;
-  for (var i = 0; i < SB.ROADS_V.length; i += 1) {
-    if (Math.abs(x - SB.ROADS_V[i]) < half) return true;
+// Breadth-first route over intersections, then the final point.
+export function findRoute(graph, fromX, fromY, toX, toY) {
+  const nearestNode = (x, y) => {
+    let best = 0, bestD = Infinity;
+    graph.nodes.forEach((n, i) => {
+      const d = (n.x - x) ** 2 + (n.y - y) ** 2;
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  };
+  const start = nearestNode(fromX, fromY);
+  const goal = nearestNode(toX, toY);
+  const prev = new Array(graph.nodes.length).fill(-1);
+  const queue = [start];
+  prev[start] = start;
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur === goal) break;
+    for (const nb of graph.edges[cur]) {
+      if (prev[nb] === -1) { prev[nb] = cur; queue.push(nb); }
+    }
   }
-  for (var j = 0; j < SB.ROADS_H.length; j += 1) {
-    if (Math.abs(y - SB.ROADS_H[j]) < half) return true;
-  }
-  return false;
-};
+  if (prev[goal] === -1) return [{ x: toX, y: toY }];
+  const path = [];
+  let cur = goal;
+  while (cur !== start) { path.unshift(graph.nodes[cur]); cur = prev[cur]; }
+  path.unshift(graph.nodes[start]);
+  path.push({ x: toX, y: toY });
+  return path;
+}
 
-// Nearest road centre line to a point, and whether it is vertical.
-SB.nearestRoad = function (x, y) {
-  var best = null, bestD = Infinity;
-  for (var i = 0; i < SB.ROADS_V.length; i += 1) {
-    var d = Math.abs(x - SB.ROADS_V[i]);
-    if (d < bestD) { bestD = d; best = { x: SB.ROADS_V[i], y: y, vertical: true }; }
-  }
-  for (var j = 0; j < SB.ROADS_H.length; j += 1) {
-    var d2 = Math.abs(y - SB.ROADS_H[j]);
-    if (d2 < bestD) { bestD = d2; best = { x: x, y: SB.ROADS_H[j], vertical: false }; }
-  }
-  return best;
-};
-
-// A random point on a road, for spawning traffic.
-SB.randomRoadPoint = function (rng) {
-  if (rng.chance(0.5)) {
-    return { x: rng.pick(SB.ROADS_V), y: rng.range(120, SB.CFG.WORLD_H - 120), vertical: true };
-  }
-  return { x: rng.range(120, SB.CFG.WORLD_W - 120), y: rng.pick(SB.ROADS_H), vertical: false };
-};
+export function placeLabel(name) {
+  return PLACES[name] || { x: 0, y: 0, label: name };
+}

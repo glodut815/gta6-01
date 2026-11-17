@@ -1,38 +1,33 @@
-// Seeded random numbers for Sunspire Bay. A small xorshift generator: the same
-// seed always gives the same stream, which is what makes the city layout and the
-// staged screenshot scenes repeatable. Normal play seeds from the clock.
-var SB = window.SB || (window.SB = {});
+// Seeded random numbers. The city layout is built from one fixed seed so
+// every load of the game shows the same Sunspire Bay.
 
-SB.makeRng = function (seed) {
-  var s = (seed >>> 0) || 1;
-  // Mix the seed so nearby seeds give unrelated streams.
-  s ^= s << 13; s >>>= 0;
-  s ^= s >>> 17; s >>>= 0;
-  s ^= s << 5; s >>>= 0;
-  function next() {
-    s ^= s << 13; s >>>= 0;
-    s ^= s >>> 17; s >>>= 0;
-    s ^= s << 5; s >>>= 0;
-    return s / 4294967296;
+export function hashSeed(text) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return {
-    next: next,
-    // Float in [a, b).
-    range: function (a, b) { return a + next() * (b - a); },
-    // Integer in [a, b] inclusive.
-    int: function (a, b) { return a + Math.floor(next() * (b - a + 1)); },
-    // True with probability p.
-    chance: function (p) { return next() < p; },
-    // One element of an array.
-    pick: function (arr) { return arr[Math.floor(next() * arr.length)]; },
-    // Shuffle a copy of an array.
-    shuffled: function (arr) {
-      var copy = arr.slice();
-      for (var i = copy.length - 1; i > 0; i -= 1) {
-        var j = Math.floor(next() * (i + 1));
-        var t = copy[i]; copy[i] = copy[j]; copy[j] = t;
-      }
-      return copy;
-    },
+  return h >>> 0;
+}
+
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function next() {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-};
+}
+
+// Small helper object so callers read rng.range / rng.pick / rng.chance.
+export function makeRng(seed) {
+  const next = mulberry32(typeof seed === 'string' ? hashSeed(seed) : seed);
+  return {
+    next,
+    range(min, max) { return min + next() * (max - min); },
+    int(min, max) { return Math.floor(min + next() * (max - min + 1)); },
+    pick(list) { return list[Math.floor(next() * list.length)]; },
+    chance(p) { return next() < p; },
+  };
+}

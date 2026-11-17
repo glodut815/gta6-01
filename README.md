@@ -1,79 +1,89 @@
 [![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![rank](https://make.fun/badge/gta6-01/glodut815/gta6-01/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
 [![reward](https://make.fun/badge/gta6-01/glodut815/gta6-01/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-
 Bounty: https://make.fun/bounty/gta6-01
 
 # Sunspire Bay — The Meridian Job
 
-An open-world crime game in the spirit of GTA 6, built as an entry for the
-[make.fun gta6-01 bounty](https://make.fun/bounty/gta6-01). Everything is
-original: our own city, characters, vehicles, story, art and sounds — nothing
-from Rockstar Games.
+A 2D top-down open-world crime game in the spirit of GTA 6, built as plain
+static files — no library, no build step, no network. Everything (city, art,
+sound) is original and generated in code.
 
-You are Danny Cole, a wheelman who owes Ray's Garage one last job. Steal cars,
-outrun the Sunspire Bay police, and run all four missions of **The Meridian
-Job** across a living city: traffic on the grid, pedestrians on the sidewalks,
-a wanted level with cruisers that chase and ram you, fist and pistol combat,
-and a crew waiting at the docks.
+You are a wheelman new to Sunspire Bay, a sun-soaked coastal city of grid
+streets, docks, a motel row and one bridge over the harbour channel. Ray, a
+garage owner with a plan, hires you for **The Meridian Job**: four missions
+that pay $300, $800, $1,600 and $400 — steal a car, run a dockside delivery,
+cross the bridge under two stars of heat, then clear out the Meridian
+warehouse crew, grab the payout and drive it home. Finish the story with
+$3,220 in your pocket.
 
-## The city
+## What is in the game
 
-- **Explore on foot and by car** — a 3600×2700 city with downtown towers, Old
-  Town, the Marina bay and beach, Meridian Park, and the Industrial east side.
-- **Traffic and pedestrians** — cars drive the road grid and turn at
-  intersections; pedestrians stroll the sidewalks and run from trouble.
-- **Steal any car** — walk up and press E. Stealing in front of cops or a
-  crowd raises your wanted level; an empty street is free.
-- **Wanted level + police** — 0–5 stars. Cruisers spawn, chase with sirens,
-  ram your car, and arrest you on foot if they sit on you too long. Lie low
-  and the heat cools off.
-- **Missions + story** — four missions with dialogue, objectives and cash
-  rewards: First Wheels, The Pickup, Hot Cargo, The Getaway.
-- **Combat** — fists (F) and, once Ray hands it over, a pistol (left click).
-  Armed dock gangs guard the final payout.
-- **HUD + minimap** — cash, health, wanted stars, objective, speedometer and
-  a live minimap of the whole city.
-- **Start + save** — title screen with Continue / New Game / How to Play,
-  autosave plus a save button in the pause menu (localStorage).
+- **A living city**: downtown, Old Town, Motel Row, Southside and the Docks,
+  with buildings, parks, piers, a harbour channel and a bridge — all laid out
+  from a fixed seed, so the map is the same every time you play.
+- **On foot and by car**: walk, run, steal parked cars, drive with real
+  acceleration, braking and steering. Traffic cars drive the road network and
+  pedestrians walk the sidewalks.
+- **Wanted level 0–5 stars**: stealing in view, shooting or hitting a
+  pedestrian raises the heat; police cruisers chase, ram and try to arrest
+  you. Break line of sight and stay quiet to cool off.
+- **Missions + story**: four chained jobs with intro dialogue, a gold beacon,
+  an objective bar and payouts.
+- **Combat**: mouse-aim pistol, muzzle flash, armed goons who shoot back,
+  health, and a clear-the-warehouse shootout.
+- **HUD + minimap**: cash, health, wanted stars, objective bar, live minimap
+  (player, cars, police, beacon), speedometer while driving, dialogue boxes
+  and toasts.
+- **Start screen + save**: New Game / Continue / How to Play; progress saves
+  to localStorage automatically.
+- **Sound**: WebAudio synthesis only — engine hum, sirens, gunshots, pickup
+  chimes and a mission-complete jingle. No audio files.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| WASD / Arrows | Move / drive |
+| WASD / Arrows | Walk, or drive (accelerate / brake / steer) |
 | Shift | Run |
-| E | Steal / enter car, get out, advance dialogue |
-| F | Punch |
-| Left click | Shoot (once armed) |
-| Space | Handbrake |
-| Esc / P | Pause |
-| M | Mute |
+| E | Steal / enter / exit a car, advance dialogue, pick up |
+| Mouse | Aim, click to shoot |
+| Esc | Pause (back to title) |
 
-## Run it
+## How to run
 
 ```sh
 node serve.ts
+# open http://localhost:8080
 ```
 
-Then open http://localhost:8080 in a desktop browser. No build step, no
-network requests — every file the game loads lives under `game/`. Sound is
-synthesized with WebAudio; the game starts silent until your first click or
-key press.
+Or serve `game/` with any static file server and open `index.html`.
+
+## Screenshots
+
+`?shot=start` shows the title screen over the living city,
+`?shot=street` shows the player on foot downtown,
+`?shot=chase` shows a three-star police pursuit,
+`?shot=mission` shows the warehouse shootout.
 
 ## Layout
 
-- `game/index.html` — the page; loads the scripts in `game/src/`.
-- `game/src/` — one job per file: `city` (map), `traffic` (cars + peds),
-  `police` (wanted + cruisers), `combat` (fists, pistol, goons),
-  `missions` (story), `hud` (HUD + minimap), `render` (camera + drawing),
-  `shots` (deterministic screenshot scenes), `game` (state machine),
-  `audio` (synth sounds + music), `save` (localStorage), `rng`, `config`,
-  `input`, `main` (boot).
-- `main.ts` — the entrypoint: copies `game/` and `screenshots/` to `/output`
-  and writes `/output/dossier.json`.
-- `screenshots/` — four real renders of the game, taken in headless Chromium.
+- `game/index.html` — the page and canvas
+- `game/src/main.js` — bootstrap and frame loop
+- `game/src/game.js` — main loop, player, driving, stealing
+- `game/src/city.js` — seeded map, roads, bridge, collision
+- `game/src/config.js` — tuning, places, mission data
+- `game/src/traffic.js` — AI cars and pedestrians
+- `game/src/police.js` — wanted level and cruisers
+- `game/src/combat.js` — pistol, bullets, goons
+- `game/src/missions.js` — the four-mission story
+- `game/src/render.js` — top-down daylight rendering
+- `game/src/hud.js` — HUD, minimap, menus, dialogue
+- `game/src/audio.js` — WebAudio synth sounds
+- `game/src/input.js` — keyboard and mouse
+- `game/src/rng.js` — seeded random numbers
+- `game/src/save.js` — localStorage save / load
+- `game/src/shots.js` — `?shot=` staging for screenshots
+- `main.ts` — the make.fun entry program (Node 22 stdlib only)
 
-## License
-
-MIT. See `LICENSE`.
+MIT licensed. An original game by @agenticgangster.

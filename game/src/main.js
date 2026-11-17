@@ -1,76 +1,67 @@
-// Boot for Sunspire Bay. Sizes the canvas to the window, then either stages
-// one deterministic screenshot scene (?shot=cover|street|chase|mission) and
-// renders a single frame, or runs the live game loop at a fixed 60 Hz step.
-var SB = window.SB || (window.SB = {});
+// Bootstrap: create the game, run the frame loop, and expose a small live
+// state object for playtesting and screenshot staging.
 
-(function () {
-  var canvas = document.getElementById('game');
-  var params = new URLSearchParams(window.location.search);
-  var shot = params.get('shot');
-  var seedParam = Number(params.get('seed') || 7);
+import { Game } from './game.js';
+import { VIEW_W, VIEW_H } from './config.js';
 
-  function fitCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+const canvas = document.getElementById('game');
+const game = new Game(canvas);
+
+let last = performance.now();
+function loop(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  try {
+    game.frame(dt);
+  } catch (err) {
+    console.error('frame error (recovered):', err);
   }
-  fitCanvas();
-  window.addEventListener('resize', fitCanvas);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
 
-  var G = SB.createGame(canvas, seedParam);
-  G.view.w = canvas.width;
-  G.view.h = canvas.height;
-  SB.layoutButtons(G);
-  SB.Input.attach(canvas);
-  window.__game = G;
-
-  function renderOnce() {
-    G.view.w = canvas.width;
-    G.view.h = canvas.height;
-    SB.render(G, G.view);
-  }
-
-  if (shot) {
-    // Screenshot mode: stage the scene, draw one frame, signal readiness.
-    G.view.w = canvas.width;
-    G.view.h = canvas.height;
-    SB.layoutButtons(G);
-    try {
-      SB.stageShot(shot, G);
-    } catch (err) {
-      window.__shotError = String(err && err.stack || err);
-    }
-    renderOnce();
-    window.__shotReady = true;
-    return;
-  }
-
-  // Live play: fixed-step simulation, render every animation frame.
-  // Edge-triggered input (a key press, a click) is cleared after EVERY
-  // simulation step, not just every frame: several steps can run in one
-  // frame, and a press must never fire twice — the E that ends a dialogue
-  // must not also steal the car parked next to the player.
-  var STEP = SB.CFG.STEP;
-  var acc = 0;
-  var last = performance.now();
-  function frame(now) {
-    var dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    acc += dt;
-    var guard = 0;
-    while (acc >= STEP && guard < 5) {
-      SB.update(G, STEP);
-      SB.Input.endFrame();
-      acc -= STEP;
-      guard += 1;
-    }
-    if (guard === 5) acc = 0;
-    G.view.w = canvas.width;
-    G.view.h = canvas.height;
-    SB.render(G, G.view);
-    // NOTE: no endFrame() here on purpose. Edge input is cleared after each
-    // simulation step above; clearing it after rendering too would drop a
-    // click or key press that lands in a frame which ran no step.
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-})();
+// Live state for automated playtests (read-only from outside).
+window.__game = {
+  get mode() { return game.mode; },
+  get cash() { return game.cash; },
+  get health() { return game.health; },
+  get wanted() { return game.police.wanted; },
+  get missionIndex() { return game.missions.index; },
+  get missionStep() { return game.missions.step; },
+  get missionTitle() { return game.missions.active ? game.missions.def.title : 'done'; },
+  get objective() { return game.missions.objectiveText(); },
+  get storyComplete() { return game.missions.done; },
+  get dialogueActive() { return game.missions.dialogueActive(); },
+  get toasts() { return game.toasts.map((t) => t.text); },
+  get player() {
+    const p = game.player;
+    return {
+      x: p.x, y: p.y, angle: p.car ? p.car.angle : p.moveAngle,
+      speed: p.car ? p.car.speed : Math.hypot(p.vx, p.vy),
+      onFoot: !p.car, health: game.health,
+      aimAngle: p.aimAngle,
+    };
+  },
+  get target() { return game.missions.targetPoint(); },
+  get goons() {
+    return game.combat.goons.map((g) => ({ x: g.x, y: g.y, alive: g.alive, hp: g.hp }));
+  },
+  get goonsAlive() { return game.combat.goonsAlive; },
+  get bullets() {
+    return game.combat.bullets.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), life: +b.life.toFixed(2), friendly: b.friendly }));
+  },
+  get mouse() { return { x: Math.round(game.input.mouse.x), y: Math.round(game.input.mouse.y), down: game.input.mouse.down }; },
+  get camera() { return { x: game.camera.x, y: game.camera.y }; },
+  get view() { return { w: VIEW_W, h: VIEW_H }; },
+  get parkedCars() {
+    return game.city.parkedCars.map((c) => ({ x: c.x, y: c.y }));
+  },
+  get policeCount() { return game.police.cruisers.length; },
+  get roadGraph() { return game.roadGraph; },
+  worldToScreen(x, y) {
+    return {
+      x: VIEW_W / 2 + (x - game.camera.x),
+      y: VIEW_H / 2 + (y - game.camera.y),
+    };
+  },
+};

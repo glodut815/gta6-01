@@ -1,122 +1,105 @@
-// Every tuning number, colour and key binding for Sunspire Bay, in one place.
-// The world is a fixed 3600x2700 city; the renderer scales the camera to the
-// window, so no rule below depends on the screen size.
-var SB = window.SB || (window.SB = {});
+// Sunspire Bay — shared tuning, map layout and mission data.
+// One source of truth for numbers every other module reads.
 
-SB.CFG = {
-  WORLD_W: 3600,
-  WORLD_H: 2700,
-  ROAD_W: 96,
-  SIDEWALK: 16,
-  STEP: 1 / 60,
-  SAVE_KEY: 'sunspire-bay.save.v1',
-  BEST_KEY: 'sunspire-bay.best.v1',
+export const VIEW_W = 1280;
+export const VIEW_H = 720;
+
+export const WORLD = { w: 3600, h: 2600 };
+
+// Road centrelines. Streets are wide enough for U-turns.
+export const ROADS_V = [200, 700, 1200, 1700, 2200, 2700, 3200];
+export const ROADS_H = [200, 650, 1100, 1550, 2000, 2350];
+export const ROAD_W = 116;
+
+// A water channel splits the city: docks and harbour lie east of it.
+// The only crossing is the bridge on Harbor Avenue (y = 1100).
+export const CHANNEL = { x0: 3000, x1: 3180 };
+export const BRIDGE = { y0: 1024, y1: 1176 };
+
+// Named places. Every mission target is a point on or beside a road.
+export const PLACES = {
+  safehouse: { x: 460, y: 470, label: 'Safehouse' },
+  garage: { x: 1200, y: 650, label: "Ray's Garage" },
+  docksPickup: { x: 3360, y: 780, label: 'Docks Pickup' },
+  motel: { x: 700, y: 2000, label: 'Motel' },
+  bridgeEast: { x: 3360, y: 1100, label: 'Bridge East End' },
+  warehouse: { x: 3360, y: 1720, label: 'Meridian Warehouse' },
+  spawn: { x: 520, y: 560, label: 'Spawn' },
 };
 
-SB.ROADS_V = [200, 600, 1000, 1400, 1800, 2200, 2600, 3000, 3400];
-SB.ROADS_H = [200, 600, 1000, 1400, 1800, 2200, 2600];
+export const DISTRICTS = [
+  { name: 'Downtown', x0: 0, y0: 0, x1: 1700, y1: 1100, tint: '#c8b18a' },
+  { name: 'Motel Row', x0: 0, y0: 1550, x1: 1700, y1: 2600, tint: '#b98a7a' },
+  { name: 'Old Town', x0: 1700, y0: 0, x1: 3000, y1: 1100, tint: '#a8b8a0' },
+  { name: 'Southside', x0: 1700, y0: 1100, x1: 3000, y1: 2600, tint: '#9aa8c0' },
+  { name: 'Docks', x0: 3180, y0: 0, x1: 3600, y1: 2600, tint: '#8a94a0' },
+];
 
-SB.PLAYER = {
-  radius: 13,
-  walkSpeed: 175,
-  runSpeed: 265,
-  health: 100,
-  punchRange: 52,
-  punchDamage: 18,
-  punchCooldown: 0.35,
-  shootCooldown: 0.27,
-  pistolDamage: 34,
-  pistolRange: 520,
-};
-
-SB.CAR = {
-  accel: 560,
-  brake: 950,
-  reverseMax: 260,
-  maxSpeed: 640,
-  steerRate: 2.7,
-  drag: 0.55,
-  grip: 6.5,
-  radius: 20,
-};
-
-SB.TRAFFIC = { minSpeed: 120, maxSpeed: 195, count: 26, radius: 20 };
-SB.PED = { count: 42, walkSpeed: 55, fleeSpeed: 150 };
-
-SB.POLICE = {
-  accel: 720,
-  maxSpeed: 665,
-  ramDamage: 12,
-  bustRadius: 78,
-  bustSeconds: 2.4,
-  // Cruisers on the street per wanted level (index = stars).
-  cruisersForStars: [0, 2, 3, 4, 5, 6],
-};
-
-SB.WANTED = {
-  stealCar: 1,
-  assaultPed: 1,
-  hitPed: 1,
-  shootPed: 2,
-  shootCop: 2,
-  crimeCooldown: 25, // seconds of no crime before stars start to fall
-  decaySeconds: 12, // seconds per lost star once cooling down
-};
-
-// Cash the player loses when busted or wasted.
-SB.BUST_FINE = 150;
-SB.WASTE_FINE = 150;
-
-SB.PALETTE = {
+export const COLORS = {
   grass: '#5d8a4a',
-  grassDark: '#4c7a3e',
-  park: '#6fa055',
-  sand: '#d9c48a',
-  water: '#2e6f8e',
-  waterDeep: '#256078',
-  road: '#3a3d46',
-  roadEdge: '#2c2f37',
-  sidewalk: '#8d8a7d',
-  lane: '#d8c95a',
-  buildingRoof: '#7a6f63',
-  plaza: '#9a938a',
-  text: '#f4f1e8',
-  muted: '#b9b4a6',
-  gold: '#f2c94c',
-  red: '#e5534b',
-  blue: '#4f8ef7',
-  green: '#58c184',
-  panel: 'rgba(16, 18, 26, 0.82)',
-  panelEdge: 'rgba(244, 241, 232, 0.25)',
+  grassAlt: '#557f43',
+  sand: '#d8c08a',
+  asphalt: '#3a3d44',
+  asphaltEdge: '#2c2f36',
+  lane: '#e8d44d',
+  sidewalk: '#9a938a',
+  water: '#2f6f8f',
+  waterDeep: '#25607e',
+  buildingRoof: ['#b0563a', '#7a6a8a', '#4a7a9a', '#9a8a4a', '#6a8a5a', '#8a4a5a'],
+  park: '#4a7a3a',
+  bridgeDeck: '#6a6f78',
 };
 
-SB.BUILDING_COLORS = [
-  '#8a7f72', '#a08b74', '#6f7d8c', '#9c8a6d', '#7d8a6f',
-  '#b0987f', '#857a8c', '#96826a', '#74828f', '#a8907c',
-];
-SB.ROOF_COLORS = ['#6b5f52', '#5d6b78', '#7a6a58', '#5f7050', '#6e5a68'];
-SB.CAR_COLORS = [
-  '#c0392b', '#2980b9', '#f39c12', '#27ae60', '#8e44ad', '#ecf0f1',
-  '#2c3e50', '#e67e22', '#16a085', '#d35400', '#7f8c8d', '#b03a2e',
-];
-SB.PED_COLORS = [
-  '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22',
-  '#1abc9c', '#fd79a8', '#6c5ce7', '#00b894', '#d63031', '#0984e3',
+// Mission chain: "The Meridian Job". Payouts sum with the $120 starting
+// cash to exactly $3,220 when the story is complete.
+export const MISSIONS = [
+  {
+    id: 1, title: 'First Wheels', payout: 300,
+    intro: [
+      { who: 'RAY', text: 'Kid. You want in on the Meridian Job? First prove you can drive.' },
+      { who: 'RAY', text: 'Borrow a car — any car — and bring it to my garage. Try not to scratch it.' },
+      { who: 'YOU', text: 'Borrow. Right. Let me go find a generous donor.' },
+    ],
+    objective: 'Steal a car and drive to Ray\u2019s Garage',
+    target: 'garage', needCar: true, radius: 110,
+  },
+  {
+    id: 2, title: 'Dockside Run', payout: 800,
+    intro: [
+      { who: 'RAY', text: 'Not bad. Now the real work. Pick up the crate at the docks, then drop it at the motel.' },
+      { who: 'RAY', text: 'No cops, no shortcuts through the water. The bridge is the only way east.' },
+    ],
+    objective: 'Pick up the crate at the Docks',
+    objective2: 'Deliver the crate to the Motel',
+    target: 'docksPickup', target2: 'motel', needCar: true, radius: 110,
+  },
+  {
+    id: 3, title: 'Hot Crossing', payout: 1600,
+    intro: [
+      { who: 'RAY', text: 'The Meridian crew knows our face now. Heat is coming — cross the bridge east and lose them.' },
+      { who: 'RAY', text: 'Two stars on your tail the whole way. Keep moving and do not stop on the bridge.' },
+    ],
+    objective: 'Cross the bridge east under 2-star heat',
+    target: 'bridgeEast', needCar: true, radius: 120, heat: 2,
+  },
+  {
+    id: 4, title: 'The Getaway', payout: 400,
+    intro: [
+      { who: 'RAY', text: 'Last job. The payout sits in the Meridian warehouse — and the crew is guarding it with guns.' },
+      { who: 'RAY', text: 'Clear them out, grab the case, and bring it home to the safehouse. Then we are rich.' },
+    ],
+    objective: 'Reach the Meridian Warehouse',
+    objective2: 'Clear out the crew guarding the payout',
+    objective3: 'Grab the payout case',
+    objective4: 'Drive the payout home to the Safehouse',
+    target: 'warehouse', needCar: false, radius: 130,
+  },
 ];
 
-SB.KEYS = {
-  up: ['KeyW', 'ArrowUp'],
-  down: ['KeyS', 'ArrowDown'],
-  left: ['KeyA', 'ArrowLeft'],
-  right: ['KeyD', 'ArrowRight'],
-  run: ['ShiftLeft', 'ShiftRight'],
-  enterCar: ['KeyE'],
-  punch: ['KeyF'],
-  handbrake: ['Space'],
-  pause: ['Escape', 'KeyP'],
-  mute: ['KeyM'],
-  interact: ['KeyE'],
-  advance: ['KeyE', 'Enter', 'Space'],
-};
+export const START_CASH = 120;
+export const PLAYER_MAX_HEALTH = 100;
+export const GOON_COUNT = 5;
+export const MAX_WANTED = 5;
 
-SB.FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+// Save key for localStorage.
+export const SAVE_KEY = 'sunspire-bay-save-v1';
