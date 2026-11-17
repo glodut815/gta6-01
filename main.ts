@@ -36,8 +36,13 @@ for (const f of shots) {
 }
 
 // Start from a clean output directory so a second run writes the same bytes.
-rmSync(outDir, { recursive: true, force: true });
+// Never remove the output directory itself: in the grader it is a mounted
+// volume (/output), and rmSync on a mount point throws EBUSY ("Device or
+// resource busy") even with force:true. Empty its contents instead.
 mkdirSync(outDir, { recursive: true });
+for (const f of readdirSync(outDir)) {
+  rmSync(join(outDir, f), { recursive: true, force: true });
+}
 
 // The game itself: plain static files, no build step, no network.
 cpSync(join(here, 'game'), join(outDir, 'game'), { recursive: true });
